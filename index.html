@@ -1,0 +1,208 @@
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Info } from 'lucide-react';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
+
+const criteriaDescriptions = {
+  strategicAlignment: "Measures how well the intervention aligns with the province's strategic goals (PDP, P-MTDP, SOPA, POA, Integration Programme, Policy Speeches, Provincial Strategies, Sector Frameworks and Plans relevant to the cluster).",
+  impact: "Evaluates the anticipated social and economic benefits, particularly in addressing Human Development, Economic Growth, Unemployment, Inequality, Poverty Reduction, Service Delivery efficiency.",
+  feasibility: "Measures the practicality of the intervention based on current resources, capacity, and the socio-political environment.",
+  effort: "Assesses the resources required to implement the intervention, including human resources, funding, time, and complexity.",
+  sustainability: "Assesses the long-term viability of the intervention in terms of environmental, economic, and social sustainability."
+};
+
+const ratingDescriptions = {
+  strategicAlignment: {
+    1: "Minimal alignment with provincial priorities. Express intervention is required to improve the project to qualify for consideration.",
+    2: "Moderately aligned, addresses specific goals but lacks holistic integration.",
+    3: "Fully aligned with critical provincial strategies and policies."
+  },
+  impact: {
+    1: "Limited or localised impact; affects only a small portion of the population.",
+    2: "Moderate, short-term impact affecting select populations.",
+    3: "Significant, far-reaching impact across various sectors, benefiting the majority of the population sustainably."
+  },
+  feasibility: {
+    1: "Major challenges, including limited capacity, regulatory hurdles, or unfavourable socio-political conditions.",
+    2: "Some challenges, but feasible with adjustments or mitigation measures.",
+    3: "Fully feasible with existing resources, capacity, and conducive socio-political conditions."
+  },
+  effort: {
+    1: "High resource demand, requiring significant investment and specialised resources.",
+    2: "Moderate resource requirements and complexity.",
+    3: "Minimal resource demand; easily implementable."
+  },
+  sustainability: {
+    1: "Short-term benefits with significant environmental or economic costs; difficult to sustain.",
+    2: "Moderate sustainability with potential for long-term benefits if managed well.",
+    3: "Strong sustainability with long-term positive outcomes that are economically, socially, and environmentally sound."
+  }
+};
+
+const PrioritisationTool = () => {
+  const [projectName, setProjectName] = useState('');
+  const [ratings, setRatings] = useState({
+    strategicAlignment: 0,
+    impact: 0,
+    feasibility: 0,
+    effort: 0,
+    sustainability: 0
+  });
+  const [savedProjects, setSavedProjects] = useState([]);
+
+  const weights = {
+    strategicAlignment: 0.25,
+    impact: 0.25,
+    feasibility: 0.25,
+    effort: 0.10,
+    sustainability: 0.15
+  };
+
+  const handleRatingChange = (criterion, value) => {
+    setRatings(prev => ({ ...prev, [criterion]: parseFloat(value) }));
+  };
+
+  const calculateScore = () => {
+    let totalScore = 0;
+    for (const criterion in ratings) {
+      totalScore += ratings[criterion] * weights[criterion];
+    }
+    return totalScore.toFixed(2);
+  };
+
+  const getPriority = (score) => {
+    if (score >= 2.1) return "High Priority";
+    if (score >= 1.1) return "Medium Priority";
+    return "Low Priority";
+  };
+
+  const score = calculateScore();
+  const priority = getPriority(score);
+
+  const chartData = Object.entries(ratings).map(([key, value]) => ({
+    subject: key.replace(/([A-Z])/g, ' $1').trim(),
+    A: value,
+    fullMark: 3,
+  }));
+
+  const saveProject = () => {
+    if (projectName.trim() === '') {
+      alert('Please enter a project name');
+      return;
+    }
+    const newProject = {
+      name: projectName,
+      ratings: { ...ratings },
+      score: score,
+      priority: priority
+    };
+    setSavedProjects([...savedProjects, newProject]);
+    resetForm();
+  };
+
+  const resetForm = () => {
+    setProjectName('');
+    setRatings({
+      strategicAlignment: 0,
+      impact: 0,
+      feasibility: 0,
+      effort: 0,
+      sustainability: 0
+    });
+  };
+
+  return (
+    <TooltipProvider>
+      <Card className="w-full max-w-2xl mx-auto bg-gradient-to-br from-blue-50 to-indigo-100">
+        <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg">
+          <CardTitle className="text-2xl font-bold text-center">Project Prioritization Assessment Tool</CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="mb-6">
+            <Label htmlFor="projectName" className="font-semibold text-blue-700">Project Name:</Label>
+            <Input
+              id="projectName"
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+              className="w-full p-2 border rounded mt-2 border-blue-300 focus:border-blue-500 focus:ring focus:ring-blue-200"
+              placeholder="Enter project name"
+            />
+          </div>
+          {Object.entries(ratings).map(([criterion, rating]) => (
+            <div key={criterion} className="mb-6">
+              <div className="flex items-center mb-2">
+                <Label htmlFor={criterion} className="font-semibold capitalize mr-2 text-blue-700">
+                  {criterion.replace(/([A-Z])/g, ' $1').trim()}:
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Info size={16} className="text-blue-500 cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs">{criteriaDescriptions[criterion]}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Input
+                id={criterion}
+                type="number"
+                min="1"
+                max="3"
+                value={rating}
+                onChange={(e) => handleRatingChange(criterion, e.target.value)}
+                className="w-full p-2 border rounded mb-2 border-blue-300 focus:border-blue-500 focus:ring focus:ring-blue-200"
+              />
+              <div className="text-sm text-blue-600">
+                {rating > 0 && ratingDescriptions[criterion][rating]}
+              </div>
+            </div>
+          ))}
+          <div className="mt-6 bg-white p-4 rounded-lg shadow-md">
+            <p className="text-lg font-semibold text-blue-700">Total Score: <span className="text-indigo-600">{score}</span></p>
+            <p className="text-lg font-semibold text-blue-700">Priority: <span className="text-indigo-600">{priority}</span></p>
+          </div>
+          <div className="mt-6 h-64 bg-white p-4 rounded-lg shadow-md">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart cx="50%" cy="50%" outerRadius="80%" data={chartData}>
+                <PolarGrid stroke="#b3c6ff" />
+                <PolarAngleAxis dataKey="subject" stroke="#4a5568" />
+                <Radar name="Ratings" dataKey="A" stroke="#3182ce" fill="#63b3ed" fillOpacity={0.6} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+          <Button 
+            onClick={saveProject}
+            className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            Save Project
+          </Button>
+          <Button 
+            onClick={resetForm}
+            className="mt-4 w-full bg-white text-blue-600 border border-blue-600 hover:bg-blue-50"
+          >
+            Reset
+          </Button>
+          {savedProjects.length > 0 && (
+            <div className="mt-8">
+              <h3 className="text-xl font-bold mb-4 text-blue-700">Saved Projects</h3>
+              {savedProjects.map((project, index) => (
+                <div key={index} className="mb-4 p-4 border rounded bg-white shadow-sm">
+                  <h4 className="font-bold text-blue-600">{project.name}</h4>
+                  <p className="text-blue-700">Score: <span className="text-indigo-600">{project.score}</span></p>
+                  <p className="text-blue-700">Priority: <span className="text-indigo-600">{project.priority}</span></p>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </TooltipProvider>
+  );
+};
+
+export default PrioritisationTool;
+
